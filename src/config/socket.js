@@ -1,59 +1,47 @@
-import { Server } from 'socket.io';
+import { supabase } from './supabase.js';
 
-let io;
+const channels = new Map();
 
-export function initSocket(httpServer) {
-  io = new Server(httpServer, {
-    cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-      credentials: true,
-    },
-    pingTimeout: 60000,
+function getOrCreateChannel(room) {
+  if (channels.has(room)) return channels.get(room);
+
+  if (!supabase) return null;
+
+  const channel = supabase.channel(room);
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      channels.set(room, channel);
+    }
   });
-
-  io.on('connection', (socket) => {
-    console.log(`🔌 Client connected: ${socket.id}`);
-
-    // Join project room for scoped broadcasts
-    socket.on('join-project', (projectId) => {
-      socket.join(`project:${projectId}`);
-      console.log(`Socket ${socket.id} joined project:${projectId}`);
-    });
-
-    socket.on('leave-project', (projectId) => {
-      socket.leave(`project:${projectId}`);
-    });
-
-    // Join user-specific room for direct notifications
-    socket.on('join-user', (userId) => {
-      socket.join(`user:${userId}`);
-    });
-
-    socket.on('disconnect', () => {
-      console.log(`🔌 Client disconnected: ${socket.id}`);
-    });
-  });
-
-  return io;
-}
-
-export function getIO() {
-  if (!io) throw new Error('Socket.io not initialized');
-  return io;
+  channels.set(room, channel);
+  return channel;
 }
 
 /**
  * Emit a realtime event to everyone in a project room.
  */
 export function emitToProject(projectId, event, data) {
-  if (!io) return;
-  io.to(`project:${projectId}`).emit(event, data);
+  const channel = getOrCreateChannel(`project:${projectId}`);
+  if (!channel) return;
+  channel.send({ type: 'broadcast', event, payload: data });
 }
 
 /**
  * Emit a realtime event to a specific user.
  */
 export function emitToUser(userId, event, data) {
-  if (!io) return;
-  io.to(`user:${userId}`).emit(event, data);
+  const channel = getOrCreateChannel(`user:${userId}`);
+  if (!channel) return;
+  channel.send({ type: 'broadcast', event, payload: data });
+}
+
+/**
+ * Clean up all active channels on shutdown.
+ */
+export async function cleanupChannels() {
+  if (!supabase) return;
+  for (const channel of channels.values()) {
+    supabase.removeChannel(channel);
+  }
+  channels.clear();
 }

@@ -3,7 +3,10 @@ import { Client } from '@upstash/qstash';
 const hasQStashConfig = process.env.QSTASH_TOKEN;
 
 export const qstash = hasQStashConfig
-  ? new Client({ token: process.env.QSTASH_TOKEN })
+  ? new Client({
+      token: process.env.QSTASH_TOKEN,
+      ...(process.env.QSTASH_URL && { baseUrl: process.env.QSTASH_URL }),
+    })
   : createNoopQStash();
 
 function createNoopQStash() {

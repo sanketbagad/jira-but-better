@@ -5,7 +5,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import { initSocket } from './src/config/socket.js';
+import { cleanupChannels } from './src/config/socket.js';
+import { supabase } from './src/config/supabase.js';
 import { pool, testConnection } from './src/config/database.js';
 import { redis } from './src/config/redis.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
@@ -20,13 +21,10 @@ import sprintRoutes from './src/routes/sprints.js';
 import dashboardRoutes from './src/routes/dashboard.js';
 import githubRoutes from './src/routes/github.js';
 import webhookRoutes from './src/routes/webhooks.js';
+import storageRoutes from './src/routes/storage.js';
 
 const app = express();
 const server = http.createServer(app);
-
-// Initialize WebSocket
-const io = initSocket(server);
-app.set('io', io);
 
 // Security & parsing middleware
 app.use(helmet());
@@ -50,10 +48,11 @@ app.get('/api/health', async (_req, res) => {
     await redis.ping();
     redisOk = true;
   } catch { /* ignore */ }
+  const supabaseOk = !!supabase;
 
   res.json({
     status: dbOk ? 'healthy' : 'degraded',
-    services: { database: dbOk, redis: redisOk },
+    services: { database: dbOk, redis: redisOk, supabase: supabaseOk },
     timestamp: new Date().toISOString(),
   });
 });
@@ -70,6 +69,7 @@ app.use('/api/projects', sprintRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/projects', storageRoutes);
 
 // 404 handler
 app.use((_req, res) => {
@@ -85,6 +85,7 @@ server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   const dbOk = await testConnection();
   console.log(`📦 Database: ${dbOk ? 'connected' : 'disconnected'}`);
+  console.log(`🟢 Supabase: ${supabase ? 'connected' : 'not configured'}`);
   try {
     await redis.ping();
     console.log('🔴 Redis: connected');
@@ -97,6 +98,7 @@ server.listen(PORT, async () => {
 const shutdown = async () => {
   console.log('\n🛑 Shutting down gracefully...');
   server.close();
+  await cleanupChannels();
   await pool.end();
   process.exit(0);
 };

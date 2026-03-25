@@ -1,7 +1,11 @@
-import { pool, query } from '../config/database.js';
+import 'dotenv/config';
+import { createDirectPool } from '../config/database.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+const pool = createDirectPool();
+const query = (text, params) => pool.query(text, params);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

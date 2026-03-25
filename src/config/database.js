@@ -2,6 +2,7 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
+// Pooled connection (via PgBouncer) for app queries
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   min: parseInt(process.env.DB_POOL_MIN || '2'),
@@ -13,6 +14,15 @@ export const pool = new Pool({
 pool.on('error', (err) => {
   console.error('Unexpected database pool error:', err.message);
 });
+
+// Direct connection for migrations and DDL operations
+export function createDirectPool() {
+  return new Pool({
+    connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL,
+    max: 1,
+    connectionTimeoutMillis: 10000,
+  });
+}
 
 /**
  * Execute a parameterized query.
