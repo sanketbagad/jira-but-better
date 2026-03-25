@@ -1,32 +1,14 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-let transporter;
-
-function getTransporter() {
-  if (transporter) return transporter;
-
-  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
-    transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_PORT === '465',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-  }
-  return transporter;
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
+const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
 /**
  * Send an invite email with temp credentials.
  */
 export async function sendInviteEmail({ to, name, inviterName, projectName, role, tempPassword, loginUrl }) {
-  const transport = getTransporter();
-
-  if (!transport) {
-    console.log(`[Email] Simulated invite to ${to} (SMTP not configured)`);
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[Email] Simulated invite to ${to} (RESEND_API_KEY not configured)`);
     return { simulated: true };
   }
 
@@ -49,8 +31,8 @@ export async function sendInviteEmail({ to, name, inviterName, projectName, role
     </div>
   `;
 
-  await transport.sendMail({
-    from: process.env.EMAIL_FROM || 'noreply@todoapp.com',
+  await resend.emails.send({
+    from: fromEmail,
     to,
     subject: `You're invited to ${projectName}`,
     html,
@@ -63,9 +45,7 @@ export async function sendInviteEmail({ to, name, inviterName, projectName, role
  * Send a task assignment notification.
  */
 export async function sendTaskAssignmentEmail({ to, assigneeName, taskTitle, projectName, assignerName }) {
-  const transport = getTransporter();
-
-  if (!transport) {
+  if (!process.env.RESEND_API_KEY) {
     console.log(`[Email] Simulated task assignment notification to ${to}`);
     return { simulated: true };
   }
@@ -81,8 +61,8 @@ export async function sendTaskAssignmentEmail({ to, assigneeName, taskTitle, pro
     </div>
   `;
 
-  await transport.sendMail({
-    from: process.env.EMAIL_FROM || 'noreply@todoapp.com',
+  await resend.emails.send({
+    from: fromEmail,
     to,
     subject: `[${projectName}] Task assigned: ${taskTitle}`,
     html,
