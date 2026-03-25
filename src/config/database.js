@@ -78,3 +78,18 @@ export async function testConnection() {
     return false;
   }
 }
+
+/**
+ * Pre-warm pool connections to avoid cold-start latency.
+ */
+export async function warmPool() {
+  const min = parseInt(process.env.DB_POOL_MIN || '2');
+  const promises = [];
+  for (let i = 0; i < min; i++) {
+    promises.push(
+      pool.connect().then(client => { client.release(); })
+        .catch(() => { /* ignore warmup failures */ })
+    );
+  }
+  await Promise.all(promises);
+}

@@ -39,14 +39,24 @@ export async function getDocuments(projectId, { page, limit, offset, category, s
     countParams
   );
 
-  for (const doc of rows) {
-    const { rows: collabs } = await query(`
-      SELECT u.id, u.name, u.avatar
+  // Batch-fetch collaborators for all docs in one query (eliminates N+1)
+  if (rows.length > 0) {
+    const docIds = rows.map(d => d.id);
+    const { rows: allCollabs } = await query(`
+      SELECT dc.document_id, u.id, u.name, u.avatar
       FROM document_collaborators dc
       JOIN users u ON u.id = dc.user_id
-      WHERE dc.document_id = $1
-    `, [doc.id]);
-    doc.collaborators = collabs;
+      WHERE dc.document_id = ANY($1::uuid[])
+    `, [docIds]);
+
+    const collabsByDoc = {};
+    for (const c of allCollabs) {
+      if (!collabsByDoc[c.document_id]) collabsByDoc[c.document_id] = [];
+      collabsByDoc[c.document_id].push({ id: c.id, name: c.name, avatar: c.avatar });
+    }
+    for (const doc of rows) {
+      doc.collaborators = collabsByDoc[doc.id] || [];
+    }
   }
 
   return { rows, total: parseInt(countRows[0].count) };

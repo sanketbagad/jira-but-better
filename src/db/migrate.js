@@ -37,7 +37,8 @@ async function runMigrations(direction = 'up') {
     for (const file of files) {
       if (executed.includes(file)) continue;
       console.log(`⬆️  Running migration: ${file}`);
-      const migration = await import(path.join(migrationsDir, file));
+      const migrationPath = new URL(`file:///${path.join(migrationsDir, file).replace(/\\/g, '/')}`);
+      const migration = await import(migrationPath.href);
       await migration.up(pool);
       await query('INSERT INTO _migrations (name) VALUES ($1)', [file]);
       console.log(`✅ ${file} applied`);
@@ -47,7 +48,8 @@ async function runMigrations(direction = 'up') {
     for (const file of reversed) {
       if (!executed.includes(file)) continue;
       console.log(`⬇️  Rolling back: ${file}`);
-      const migration = await import(path.join(migrationsDir, file));
+      const migrationPath = new URL(`file:///${path.join(migrationsDir, file).replace(/\\/g, '/')}`);
+      const migration = await import(migrationPath.href);
       await migration.down(pool);
       await query('DELETE FROM _migrations WHERE name = $1', [file]);
       console.log(`✅ ${file} rolled back`);

@@ -6,9 +6,14 @@ export async function getMembers(projectId) {
   const { rows } = await query(`
     SELECT pm.id, pm.role, pm.status, pm.joined_at,
       u.id AS user_id, u.name, u.email, u.avatar,
-      (SELECT COUNT(*) FROM tasks WHERE assignee_id = u.id AND project_id = $1) AS task_count
+      COALESCE(tc.task_count, 0) AS task_count
     FROM project_members pm
     JOIN users u ON u.id = pm.user_id
+    LEFT JOIN (
+      SELECT assignee_id, COUNT(*) AS task_count
+      FROM tasks WHERE project_id = $1
+      GROUP BY assignee_id
+    ) tc ON tc.assignee_id = u.id
     WHERE pm.project_id = $1
     ORDER BY pm.joined_at ASC
   `, [projectId]);

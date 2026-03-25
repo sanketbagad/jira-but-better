@@ -19,10 +19,16 @@ export async function getProjects(userId, { page, limit, offset, search }) {
 
     const { rows } = await query(`
       SELECT p.*, pm.role AS member_role,
-        (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) AS member_count,
-        (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) AS task_count
+        COALESCE(mc.member_count, 0) AS member_count,
+        COALESCE(tc.task_count, 0) AS task_count
       FROM projects p
       JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1
+      LEFT JOIN (
+        SELECT project_id, COUNT(*) AS member_count FROM project_members GROUP BY project_id
+      ) mc ON mc.project_id = p.id
+      LEFT JOIN (
+        SELECT project_id, COUNT(*) AS task_count FROM tasks GROUP BY project_id
+      ) tc ON tc.project_id = p.id
       WHERE 1=1 ${whereSearch}
       ORDER BY p.starred DESC, p.created_at DESC
       LIMIT $2 OFFSET ${offsetIdx}
@@ -41,9 +47,15 @@ export async function getProjects(userId, { page, limit, offset, search }) {
 export async function getProjectById(projectId) {
   const { rows } = await query(`
     SELECT p.*,
-      (SELECT COUNT(*) FROM project_members WHERE project_id = p.id) AS member_count,
-      (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) AS task_count
+      COALESCE(mc.member_count, 0) AS member_count,
+      COALESCE(tc.task_count, 0) AS task_count
     FROM projects p
+    LEFT JOIN (
+      SELECT project_id, COUNT(*) AS member_count FROM project_members WHERE project_id = $1 GROUP BY project_id
+    ) mc ON mc.project_id = p.id
+    LEFT JOIN (
+      SELECT project_id, COUNT(*) AS task_count FROM tasks WHERE project_id = $1 GROUP BY project_id
+    ) tc ON tc.project_id = p.id
     WHERE p.id = $1
   `, [projectId]);
 

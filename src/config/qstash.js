@@ -22,6 +22,7 @@ const CALLBACK_BASE = process.env.QSTASH_CALLBACK_URL || 'http://localhost:3001/
 
 /**
  * Schedule a background job via QStash.
+ * If QStash publish fails (e.g. loopback in dev), falls back to running the job directly.
  * @param {string} jobType - e.g. 'send-invite-email', 'daily-digest', 'cleanup-expired-invites'
  * @param {object} payload - data for the job
  * @param {object} [options] - { delay (seconds), cron, retries }
@@ -46,7 +47,41 @@ export async function enqueueJob(jobType, payload, options = {}) {
     console.log(`[QStash] Enqueued ${jobType}: ${result.messageId}`);
     return result;
   } catch (err) {
-    console.error(`[QStash] Failed to enqueue ${jobType}:`, err.message);
-    throw err;
+    console.warn(`[QStash] Publish failed for ${jobType}: ${err.message} — running locally`);
+    return runJobLocally(jobType, payload);
+  }
+}
+
+/**
+ * Fallback: execute the job handler directly when QStash can't deliver (e.g. loopback).
+ */
+async function runJobLocally(jobType, payload) {
+  try {
+    const webhookService = await import('../services/webhookService.js');
+
+    const handlers = {
+      'send-invite-email': () => webhookService.processInviteEmail(payload),
+      'task-assigned': () => webhookService.processTaskAssigned(payload),
+      'cleanup-expired-invites': () => webhookService.cleanupExpiredInvites(),
+      'daily-digest': () => webhookService.processDailyDigest(),
+    };
+
+    const handler = handlers[jobType];
+    if (!handler) {
+      console.warn(`[QStash Fallback] No handler for job type: ${jobType}`);
+      return { messageId: 'fallback-noop-' + Date.now() };
+    }
+
+    // Run async so the caller doesn't block
+    handler().then(() => {
+      console.log(`[QStash Fallback] Completed ${jobType}`);
+    }).catch((err) => {
+      console.error(`[QStash Fallback] Failed ${jobType}:`, err.message);
+    });
+
+    return { messageId: 'fallback-' + Date.now() };
+  } catch (err) {
+    console.error(`[QStash Fallback] Error loading handler for ${jobType}:`, err.message);
+    return { messageId: 'fallback-error-' + Date.now() };
   }
 }

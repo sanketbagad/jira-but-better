@@ -1,5 +1,13 @@
 import * as authService from '../services/authService.js';
 
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: '/',
+};
+
 export async function login(req, res, next) {
   try {
     const { email, password } = req.body;
@@ -9,7 +17,8 @@ export async function login(req, res, next) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    res.json(result);
+    res.cookie('token', result.token, COOKIE_OPTIONS);
+    res.json({ user: result.user });
   } catch (err) {
     next(err);
   }
@@ -18,7 +27,8 @@ export async function login(req, res, next) {
 export async function register(req, res, next) {
   try {
     const result = await authService.registerUser(req.body);
-    res.status(201).json(result);
+    res.cookie('token', result.token, COOKIE_OPTIONS);
+    res.status(201).json({ user: result.user });
   } catch (err) {
     next(err);
   }
@@ -31,6 +41,7 @@ export function me(req, res) {
 export async function logout(req, res, next) {
   try {
     await authService.logoutUser(req.user.id);
+    res.clearCookie('token', { path: '/' });
     res.json({ success: true });
   } catch (err) {
     next(err);

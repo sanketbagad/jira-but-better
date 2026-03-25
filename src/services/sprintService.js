@@ -2,26 +2,43 @@ import { query } from '../config/database.js';
 import { emitToProject } from '../config/socket.js';
 
 export async function getSprints(projectId) {
+  // Single query for sprints with task counts (replaces correlated subqueries)
   const { rows: sprints } = await query(`
     SELECT s.*,
-      (SELECT COUNT(*) FROM tasks WHERE sprint_id = s.id) AS task_count,
-      (SELECT COUNT(*) FROM tasks WHERE sprint_id = s.id AND status = 'Done') AS done_count
+      COUNT(t.id) AS task_count,
+      COUNT(t.id) FILTER (WHERE t.status = 'Done') AS done_count
     FROM sprints s
+    LEFT JOIN tasks t ON t.sprint_id = s.id
     WHERE s.project_id = $1
+    GROUP BY s.id
     ORDER BY s.sort_order ASC, s.created_at ASC
   `, [projectId]);
 
-  for (const sprint of sprints) {
-    const { rows: tasks } = await query(`
+  // Single query for ALL tasks across all sprints (eliminates N+1 loop)
+  const sprintIds = sprints.map(s => s.id);
+  let allTasks = [];
+  if (sprintIds.length > 0) {
+    const { rows } = await query(`
       SELECT t.*, u.name AS assignee_name, u.avatar AS assignee_avatar
       FROM tasks t
       LEFT JOIN users u ON u.id = t.assignee_id
-      WHERE t.sprint_id = $1
+      WHERE t.sprint_id = ANY($1::uuid[])
       ORDER BY t.sort_order ASC, t.created_at DESC
-    `, [sprint.id]);
-    sprint.tasks = tasks;
+    `, [sprintIds]);
+    allTasks = rows;
   }
 
+  // Group tasks by sprint_id in application code
+  const tasksBySprint = {};
+  for (const task of allTasks) {
+    if (!tasksBySprint[task.sprint_id]) tasksBySprint[task.sprint_id] = [];
+    tasksBySprint[task.sprint_id].push(task);
+  }
+  for (const sprint of sprints) {
+    sprint.tasks = tasksBySprint[sprint.id] || [];
+  }
+
+  // Backlog tasks (no sprint)
   const { rows: backlogTasks } = await query(`
     SELECT t.*, u.name AS assignee_name, u.avatar AS assignee_avatar
     FROM tasks t

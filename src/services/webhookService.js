@@ -7,33 +7,30 @@ export async function processInviteEmail({ to, name, inviterName, projectName, r
 }
 
 export async function processTaskAssigned({ taskId, taskTitle, assigneeId, assignerId, projectId }) {
-  const { rows: assigneeRows } = await query(
-    'SELECT name, email FROM users WHERE id = $1',
-    [assigneeId]
-  );
-  const { rows: assignerRows } = await query(
-    'SELECT name FROM users WHERE id = $1',
-    [assignerId]
-  );
-  const { rows: projRows } = await query(
-    'SELECT name FROM projects WHERE id = $1',
-    [projectId]
-  );
+  const [assigneeResult, assignerResult, projResult] = await Promise.all([
+    query('SELECT name, email FROM users WHERE id = $1', [assigneeId]),
+    query('SELECT name FROM users WHERE id = $1', [assignerId]),
+    query('SELECT name FROM projects WHERE id = $1', [projectId]),
+  ]);
 
-  if (assigneeRows[0] && assignerRows[0]) {
+  const assignee = assigneeResult.rows[0];
+  const assigner = assignerResult.rows[0];
+  const project = projResult.rows[0];
+
+  if (assignee && assigner) {
     await sendTaskAssignmentEmail({
-      to: assigneeRows[0].email,
-      assigneeName: assigneeRows[0].name,
+      to: assignee.email,
+      assigneeName: assignee.name,
       taskTitle,
-      projectName: projRows[0]?.name || 'Project',
-      assignerName: assignerRows[0].name,
+      projectName: project?.name || 'Project',
+      assignerName: assigner.name,
     });
 
     emitToUser(assigneeId, 'notification:task-assigned', {
       taskId,
       taskTitle,
-      assignerName: assignerRows[0].name,
-      projectName: projRows[0]?.name,
+      assignerName: assigner.name,
+      projectName: project?.name,
     });
   }
 }

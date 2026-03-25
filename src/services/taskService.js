@@ -29,11 +29,14 @@ export async function getTasks(projectId, filters, { page, limit, offset }) {
         u.name AS assignee_name, u.avatar AS assignee_avatar,
         r.name AS reporter_name, r.avatar AS reporter_avatar,
         s.name AS sprint_name,
-        (SELECT COUNT(*) FROM task_attachments WHERE task_id = t.id) AS attachment_count
+        COALESCE(ac.attachment_count, 0) AS attachment_count
       FROM tasks t
       LEFT JOIN users u ON u.id = t.assignee_id
       LEFT JOIN users r ON r.id = t.reporter_id
       LEFT JOIN sprints s ON s.id = t.sprint_id
+      LEFT JOIN (
+        SELECT task_id, COUNT(*) AS attachment_count FROM task_attachments GROUP BY task_id
+      ) ac ON ac.task_id = t.id
       WHERE ${where}
       ORDER BY t.sort_order ASC, t.created_at DESC
       LIMIT $${idx} OFFSET $${idx + 1}

@@ -5,9 +5,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import { cleanupChannels } from './src/config/socket.js';
 import { supabase } from './src/config/supabase.js';
-import { pool, testConnection } from './src/config/database.js';
+import { pool, testConnection, warmPool } from './src/config/database.js';
 import { redis } from './src/config/redis.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
 import authRoutes from './src/routes/auth.js';
@@ -35,6 +36,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
@@ -85,6 +87,10 @@ server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   const dbOk = await testConnection();
   console.log(`📦 Database: ${dbOk ? 'connected' : 'disconnected'}`);
+  if (dbOk) {
+    await warmPool();
+    console.log('📦 Database pool pre-warmed');
+  }
   console.log(`🟢 Supabase: ${supabase ? 'connected' : 'not configured'}`);
   try {
     await redis.ping();
