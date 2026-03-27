@@ -319,4 +319,170 @@ export const schemas = {
   linkTaskDocument: Joi.object({
     document_id: Joi.string().uuid().required(),
   }),
+
+  // HR - Offer Letters
+  createOfferLetter: Joi.object({
+    candidate_name: Joi.string().min(1).max(255).required(),
+    candidate_email: Joi.string().email().required(),
+    candidate_phone: Joi.string().max(50).allow('', null),
+    candidate_address: Joi.string().max(1000).allow('', null),
+    
+    position_title: Joi.string().min(1).max(255).required(),
+    department: Joi.string().max(255).allow('', null),
+    employment_type: Joi.string().valid('full-time', 'part-time', 'contract', 'internship').default('full-time'),
+    start_date: Joi.date().iso().required(),
+    reporting_to: Joi.string().max(255).allow('', null),
+    work_location: Joi.string().max(255).allow('', null),
+    
+    base_salary: Joi.number().positive().required(),
+    salary_currency: Joi.string().max(10).default('USD'),
+    salary_frequency: Joi.string().valid('hourly', 'weekly', 'bi-weekly', 'monthly', 'annual').default('annual'),
+    bonus_percentage: Joi.number().min(0).max(100).allow(null, ''),
+    equity_shares: Joi.number().integer().min(0).allow(null, ''),
+    equity_vesting_period: Joi.string().max(100).allow('', null),
+    
+    benefits: Joi.array().items(Joi.object({
+      name: Joi.string().max(100).required(),
+      description: Joi.string().max(500).allow(''),
+    })).default([]),
+    
+    additional_terms: Joi.string().max(5000).allow('', null),
+    offer_expiry_date: Joi.date().iso().allow(null, ''),
+    offer_date: Joi.date().iso().allow(null, ''),
+    
+    company_name: Joi.string().min(1).max(255).required(),
+    company_address: Joi.string().max(1000).allow('', null),
+    company_logo_url: Joi.string().uri().allow('', null),
+    signatory_name: Joi.string().max(255).allow('', null),
+    signatory_title: Joi.string().max(255).allow('', null),
+    
+    status: Joi.string().valid('draft', 'sent', 'accepted', 'declined', 'expired', 'withdrawn').default('draft'),
+  }),
+
+  updateOfferLetter: Joi.object({
+    candidate_name: Joi.string().min(1).max(255),
+    candidate_email: Joi.string().email(),
+    candidate_phone: Joi.string().max(50).allow('', null),
+    candidate_address: Joi.string().max(1000).allow('', null),
+    
+    position_title: Joi.string().min(1).max(255),
+    department: Joi.string().max(255).allow('', null),
+    employment_type: Joi.string().valid('full-time', 'part-time', 'contract', 'internship'),
+    start_date: Joi.date().iso(),
+    reporting_to: Joi.string().max(255).allow('', null),
+    work_location: Joi.string().max(255).allow('', null),
+    
+    base_salary: Joi.number().positive(),
+    salary_currency: Joi.string().max(10),
+    salary_frequency: Joi.string().valid('hourly', 'weekly', 'bi-weekly', 'monthly', 'annual'),
+    bonus_percentage: Joi.number().min(0).max(100).allow(null, ''),
+    equity_shares: Joi.number().integer().min(0).allow(null, ''),
+    equity_vesting_period: Joi.string().max(100).allow('', null),
+    
+    benefits: Joi.array().items(Joi.object({
+      name: Joi.string().max(100).required(),
+      description: Joi.string().max(500).allow(''),
+    })),
+    
+    additional_terms: Joi.string().max(5000).allow('', null),
+    offer_expiry_date: Joi.date().iso().allow(null, ''),
+    offer_date: Joi.date().iso().allow(null, ''),
+    
+    company_name: Joi.string().min(1).max(255),
+    company_address: Joi.string().max(1000).allow('', null),
+    company_logo_url: Joi.string().uri().allow('', null),
+    signatory_name: Joi.string().max(255).allow('', null),
+    signatory_title: Joi.string().max(255).allow('', null),
+    
+    status: Joi.string().valid('draft', 'sent', 'accepted', 'declined', 'expired', 'withdrawn'),
+  }).min(1),
+
+  // HR - Payslips
+  createPayslip: Joi.object({
+    employee_id: Joi.string().uuid().allow(null),
+    employee_name: Joi.string().min(1).max(255).required(),
+    employee_email: Joi.string().email().required(),
+    employee_code: Joi.string().max(50).allow('', null),
+    department: Joi.string().max(255).allow('', null),
+    designation: Joi.string().max(255).allow('', null),
+    date_of_joining: Joi.date().iso().allow(null),
+    bank_name: Joi.string().max(255).allow('', null),
+    bank_account_number: Joi.string().max(100).allow('', null),
+    pan_number: Joi.string().max(50).allow('', null),
+    
+    pay_period_start: Joi.date().iso().required(),
+    pay_period_end: Joi.date().iso().required(),
+    payment_date: Joi.date().iso().required(),
+    
+    basic_salary: Joi.number().min(0).required(),
+    hra: Joi.number().min(0).default(0),
+    conveyance_allowance: Joi.number().min(0).default(0),
+    medical_allowance: Joi.number().min(0).default(0),
+    special_allowance: Joi.number().min(0).default(0),
+    bonus: Joi.number().min(0).default(0),
+    overtime_pay: Joi.number().min(0).default(0),
+    other_earnings: Joi.array().items(Joi.object({
+      name: Joi.string().max(100).required(),
+      amount: Joi.number().min(0).required(),
+    })).default([]),
+    
+    provident_fund: Joi.number().min(0).default(0),
+    professional_tax: Joi.number().min(0).default(0),
+    income_tax: Joi.number().min(0).default(0),
+    health_insurance: Joi.number().min(0).default(0),
+    other_deductions: Joi.array().items(Joi.object({
+      name: Joi.string().max(100).required(),
+      amount: Joi.number().min(0).required(),
+    })).default([]),
+    
+    currency: Joi.string().max(10).default('USD'),
+    company_name: Joi.string().min(1).max(255).required(),
+    company_address: Joi.string().max(1000).allow('', null),
+    company_logo_url: Joi.string().uri().allow('', null),
+    status: Joi.string().valid('draft', 'generated', 'sent', 'paid').default('draft'),
+  }),
+
+  updatePayslip: Joi.object({
+    employee_id: Joi.string().uuid().allow(null),
+    employee_name: Joi.string().min(1).max(255),
+    employee_email: Joi.string().email(),
+    employee_code: Joi.string().max(50).allow('', null),
+    department: Joi.string().max(255).allow('', null),
+    designation: Joi.string().max(255).allow('', null),
+    date_of_joining: Joi.date().iso().allow(null),
+    bank_name: Joi.string().max(255).allow('', null),
+    bank_account_number: Joi.string().max(100).allow('', null),
+    pan_number: Joi.string().max(50).allow('', null),
+    
+    pay_period_start: Joi.date().iso(),
+    pay_period_end: Joi.date().iso(),
+    payment_date: Joi.date().iso(),
+    
+    basic_salary: Joi.number().min(0),
+    hra: Joi.number().min(0),
+    conveyance_allowance: Joi.number().min(0),
+    medical_allowance: Joi.number().min(0),
+    special_allowance: Joi.number().min(0),
+    bonus: Joi.number().min(0),
+    overtime_pay: Joi.number().min(0),
+    other_earnings: Joi.array().items(Joi.object({
+      name: Joi.string().max(100).required(),
+      amount: Joi.number().min(0).required(),
+    })),
+    
+    provident_fund: Joi.number().min(0),
+    professional_tax: Joi.number().min(0),
+    income_tax: Joi.number().min(0),
+    health_insurance: Joi.number().min(0),
+    other_deductions: Joi.array().items(Joi.object({
+      name: Joi.string().max(100).required(),
+      amount: Joi.number().min(0).required(),
+    })),
+    
+    currency: Joi.string().max(10),
+    company_name: Joi.string().min(1).max(255),
+    company_address: Joi.string().max(1000).allow('', null),
+    company_logo_url: Joi.string().uri().allow('', null),
+    status: Joi.string().valid('draft', 'generated', 'sent', 'paid'),
+  }).min(1),
 };

@@ -25,6 +25,7 @@ import webhookRoutes from './src/routes/webhooks.js';
 import storageRoutes from './src/routes/storage.js';
 import chatRoutes from './src/routes/chat.js';
 import meetingRoutes from './src/routes/meetings.js';
+import hrRoutes from './src/routes/hr.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -76,6 +77,7 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/projects', storageRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/meetings', meetingRoutes);
+app.use('/api/hr', hrRoutes);
 
 // 404 handler
 app.use((_req, res) => {
