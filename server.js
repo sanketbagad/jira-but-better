@@ -23,6 +23,8 @@ import dashboardRoutes from './src/routes/dashboard.js';
 import githubRoutes from './src/routes/github.js';
 import webhookRoutes from './src/routes/webhooks.js';
 import storageRoutes from './src/routes/storage.js';
+import chatRoutes from './src/routes/chat.js';
+import meetingRoutes from './src/routes/meetings.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -72,6 +74,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/projects', storageRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/meetings', meetingRoutes);
 
 // 404 handler
 app.use((_req, res) => {

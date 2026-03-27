@@ -1,5 +1,7 @@
 export function errorHandler(err, _req, res, _next) {
   console.error('Error:', err.message);
+  console.error('Error code:', err.code);
+  console.error('Error detail:', err.detail);
 
   if (process.env.NODE_ENV !== 'production') {
     console.error(err.stack);
@@ -26,6 +28,7 @@ export function errorHandler(err, _req, res, _next) {
     return res.status(400).json({
       error: 'Invalid value',
       detail: err.detail,
+      constraint: err.constraint,
     });
   }
 

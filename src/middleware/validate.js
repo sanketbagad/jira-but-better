@@ -7,12 +7,14 @@ import Joi from 'joi';
  */
 export function validate(schema, source = 'body') {
   return (req, res, next) => {
+    console.log(`Validating ${source}:`, req[source]);
     const { error, value } = schema.validate(req[source], {
       abortEarly: false,
       stripUnknown: true,
     });
 
     if (error) {
+      console.log('Validation error:', error.details);
       const details = error.details.map(d => ({
         field: d.path.join('.'),
         message: d.message.replace(/"/g, ''),
@@ -66,6 +68,9 @@ export const schemas = {
     assignee_id: Joi.string().uuid().allow(null, ''),
     sprint_id: Joi.string().uuid().allow(null, ''),
     due_date: Joi.date().iso().allow(null),
+    story_points: Joi.number().integer().min(0).max(100).allow(null),
+    time_estimate: Joi.number().integer().min(0).allow(null),
+    labels: Joi.array().items(Joi.string().max(50)).default([]),
   }),
 
   updateTask: Joi.object({
@@ -78,6 +83,10 @@ export const schemas = {
     sprint_id: Joi.string().uuid().allow(null, ''),
     due_date: Joi.date().iso().allow(null),
     sort_order: Joi.number().integer(),
+    story_points: Joi.number().integer().min(0).max(100).allow(null),
+    time_estimate: Joi.number().integer().min(0).allow(null),
+    time_spent: Joi.number().integer().min(0).allow(null),
+    labels: Joi.array().items(Joi.string().max(50)),
   }).min(1),
 
   // Members
@@ -235,5 +244,79 @@ export const schemas = {
     search: Joi.string().max(200).allow(''),
     sort: Joi.string().max(50).default('created_at'),
     order: Joi.string().valid('asc', 'desc').default('desc'),
+  }),
+
+  // Chat - Channels
+  createChannel: Joi.object({
+    name: Joi.string().min(1).max(100).required(),
+    description: Joi.string().max(500).allow('').default(''),
+    type: Joi.string().valid('public', 'private', 'direct').default('public'),
+    member_ids: Joi.array().items(Joi.string().uuid()).default([]),
+  }),
+
+  updateChannel: Joi.object({
+    name: Joi.string().min(1).max(100),
+    description: Joi.string().max(500).allow(''),
+  }).min(1),
+
+  // Chat - Messages
+  sendMessage: Joi.object({
+    content: Joi.string().min(1).max(10000).required(),
+    parent_id: Joi.string().uuid().allow(null),
+    attachments: Joi.array().items(Joi.object({
+      type: Joi.string().valid('image', 'file', 'code').required(),
+      url: Joi.string().uri().allow(''),
+      name: Joi.string().max(255).required(),
+      size: Joi.number().integer().min(0),
+      mimeType: Joi.string().max(100),
+    })).default([]),
+    mentions: Joi.array().items(Joi.string().uuid()).default([]),
+  }),
+
+  updateMessage: Joi.object({
+    content: Joi.string().min(1).max(10000).required(),
+  }),
+
+  // Meetings
+  createMeeting: Joi.object({
+    title: Joi.string().min(1).max(255).required(),
+    description: Joi.string().max(5000).allow('').default(''),
+    start_time: Joi.date().iso().required(),
+    end_time: Joi.date().iso().required(),
+    meeting_type: Joi.string().valid('video', 'audio', 'in_person').default('video'),
+    recurring: Joi.string().valid('none', 'daily', 'weekly', 'biweekly', 'monthly').default('none'),
+    location: Joi.string().max(500).allow('').default(''),
+    participant_ids: Joi.array().items(Joi.string().uuid()).default([]),
+    channel_id: Joi.string().uuid().allow(null),
+  }),
+
+  updateMeeting: Joi.object({
+    title: Joi.string().min(1).max(255),
+    description: Joi.string().max(5000).allow(''),
+    start_time: Joi.date().iso(),
+    end_time: Joi.date().iso(),
+    meeting_type: Joi.string().valid('video', 'audio', 'in_person'),
+    recurring: Joi.string().valid('none', 'daily', 'weekly', 'biweekly', 'monthly'),
+    location: Joi.string().max(500).allow(''),
+    participant_ids: Joi.array().items(Joi.string().uuid()),
+  }).min(1),
+
+  meetingResponse: Joi.object({
+    response: Joi.string().valid('accepted', 'declined', 'tentative').required(),
+  }),
+
+  // Task Comments
+  createTaskComment: Joi.object({
+    content: Joi.string().min(1).max(10000).required(),
+    parent_id: Joi.string().uuid().allow(null, '').optional(),
+  }),
+
+  updateTaskComment: Joi.object({
+    content: Joi.string().min(1).max(10000).required(),
+  }),
+
+  // Task Document Link
+  linkTaskDocument: Joi.object({
+    document_id: Joi.string().uuid().required(),
   }),
 };

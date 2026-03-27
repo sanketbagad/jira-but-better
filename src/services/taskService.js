@@ -29,7 +29,9 @@ export async function getTasks(projectId, filters, { page, limit, offset }) {
         u.name AS assignee_name, u.avatar AS assignee_avatar,
         r.name AS reporter_name, r.avatar AS reporter_avatar,
         s.name AS sprint_name,
-        COALESCE(ac.attachment_count, 0) AS attachment_count
+        COALESCE(ac.attachment_count, 0) AS attachment_count,
+        COALESCE(cc.comment_count, 0) AS comment_count,
+        COALESCE(dc.doc_count, 0) AS linked_doc_count
       FROM tasks t
       LEFT JOIN users u ON u.id = t.assignee_id
       LEFT JOIN users r ON r.id = t.reporter_id
@@ -37,6 +39,12 @@ export async function getTasks(projectId, filters, { page, limit, offset }) {
       LEFT JOIN (
         SELECT task_id, COUNT(*) AS attachment_count FROM task_attachments GROUP BY task_id
       ) ac ON ac.task_id = t.id
+      LEFT JOIN (
+        SELECT task_id, COUNT(*) AS comment_count FROM task_comments GROUP BY task_id
+      ) cc ON cc.task_id = t.id
+      LEFT JOIN (
+        SELECT task_id, COUNT(*) AS doc_count FROM task_document_links GROUP BY task_id
+      ) dc ON dc.task_id = t.id
       WHERE ${where}
       ORDER BY t.sort_order ASC, t.created_at DESC
       LIMIT $${idx} OFFSET $${idx + 1}
@@ -57,7 +65,9 @@ export async function getTaskById(projectId, taskId) {
     SELECT t.*,
       u.name AS assignee_name, u.avatar AS assignee_avatar,
       r.name AS reporter_name, r.avatar AS reporter_avatar,
-      s.name AS sprint_name
+      s.name AS sprint_name,
+      (SELECT COUNT(*) FROM task_comments WHERE task_id = t.id) AS comment_count,
+      (SELECT COUNT(*) FROM task_document_links WHERE task_id = t.id) AS linked_doc_count
     FROM tasks t
     LEFT JOIN users u ON u.id = t.assignee_id
     LEFT JOIN users r ON r.id = t.reporter_id
@@ -72,17 +82,29 @@ export async function getTaskById(projectId, taskId) {
     [taskId]
   );
 
-  return { ...rows[0], attachments };
+  // Get linked documents
+  const { rows: linkedDocs } = await query(`
+    SELECT tdl.*, d.title AS document_title, d.category AS document_category,
+      u.name AS linked_by_name
+    FROM task_document_links tdl
+    JOIN documents d ON d.id = tdl.document_id
+    JOIN users u ON u.id = tdl.linked_by
+    WHERE tdl.task_id = $1
+    ORDER BY tdl.created_at DESC
+  `, [taskId]);
+
+  return { ...rows[0], attachments, linked_documents: linkedDocs };
 }
 
-export async function createTask(projectId, userId, { title, description, type, priority, status, assignee_id, sprint_id, due_date }) {
+export async function createTask(projectId, userId, { title, description, type, priority, status, assignee_id, sprint_id, due_date, story_points, time_estimate, labels }) {
   const { rows } = await query(`
-    INSERT INTO tasks (project_id, title, description, type, priority, status, assignee_id, reporter_id, sprint_id, due_date)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    INSERT INTO tasks (project_id, title, description, type, priority, status, assignee_id, reporter_id, sprint_id, due_date, story_points, time_estimate, labels)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING *
   `, [
     projectId, title, description, type, priority, status,
     assignee_id || null, userId, sprint_id || null, due_date || null,
+    story_points || null, time_estimate || null, labels || [],
   ]);
 
   const task = rows[0];
@@ -131,10 +153,25 @@ export async function updateTask(projectId, taskId, userId, fields) {
   }
 
   values.push(taskId, projectId);
-  const { rows } = await query(
-    `UPDATE tasks SET ${setClauses.join(', ')} WHERE id = $${i} AND project_id = $${i + 1} RETURNING *`,
+  await query(
+    `UPDATE tasks SET ${setClauses.join(', ')} WHERE id = $${i} AND project_id = $${i + 1}`,
     values
   );
+
+  // Fetch the updated task with all joined fields
+  const { rows } = await query(`
+    SELECT t.*,
+      u.name AS assignee_name, u.avatar AS assignee_avatar,
+      r.name AS reporter_name, r.avatar AS reporter_avatar,
+      s.name AS sprint_name,
+      (SELECT COUNT(*) FROM task_comments WHERE task_id = t.id) AS comment_count,
+      (SELECT COUNT(*) FROM task_document_links WHERE task_id = t.id) AS linked_doc_count
+    FROM tasks t
+    LEFT JOIN users u ON u.id = t.assignee_id
+    LEFT JOIN users r ON r.id = t.reporter_id
+    LEFT JOIN sprints s ON s.id = t.sprint_id
+    WHERE t.id = $1 AND t.project_id = $2
+  `, [taskId, projectId]);
 
   const task = rows[0];
   await cacheDel(`tasks:${projectId}:*`);
