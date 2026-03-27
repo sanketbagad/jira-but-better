@@ -8,6 +8,8 @@ const router = Router();
 
 router.post('/login', authLimiter, validate(schemas.login), authController.login);
 router.post('/register', authLimiter, validate(schemas.register), authController.register);
+router.get('/verify-email', authController.verifyEmail);
+router.post('/resend-verification', authLimiter, authController.resendVerification);
 router.get('/me', authenticate, authController.me);
 router.post('/logout', authenticate, authController.logout);
 router.patch('/password', authenticate, authController.changePassword);

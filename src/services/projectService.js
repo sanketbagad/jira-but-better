@@ -62,13 +62,13 @@ export async function getProjectById(projectId) {
   return rows[0] || null;
 }
 
-export async function createProject(userId, { name, key, description, color }) {
+export async function createProject(userId, { name, key, description, color }, organizationId) {
   const project = await transaction(async (client) => {
     const { rows } = await client.query(
-      `INSERT INTO projects (name, key, description, color, owner_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO projects (name, key, description, color, owner_id, organization_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, key, description, color, userId]
+      [name, key, description, color, userId, organizationId || null]
     );
 
     await client.query(

@@ -4,6 +4,117 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
 /**
+ * Send email verification link after registration.
+ */
+export async function sendVerificationEmail({ to, name, verifyUrl }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[Email] Simulated verification email to ${to} — Link: ${verifyUrl}`);
+    return { simulated: true };
+  }
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 0;">
+      <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+        <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <span style="font-size: 24px;">⚡</span>
+        </div>
+        <h1 style="color: white; font-size: 22px; font-weight: 700; margin: 0;">Nexora</h1>
+      </div>
+      <div style="background: #ffffff; padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
+        <h2 style="font-size: 20px; font-weight: 700; color: #111; margin: 0 0 8px;">Verify your email</h2>
+        <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+          Hi ${name}, welcome to Nexora! Click the button below to verify your email and activate your account.
+        </p>
+        <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px;">
+          Verify Email Address
+        </a>
+        <p style="color: #888; font-size: 13px; margin-top: 24px; line-height: 1.5;">
+          This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
+        </p>
+        <hr style="border: none; border-top: 1px solid #f0f0f0; margin: 24px 0;" />
+        <p style="color: #aaa; font-size: 11px; margin: 0;">
+          Can't click the button? Copy this link:<br/>
+          <a href="${verifyUrl}" style="color: #6366f1; word-break: break-all;">${verifyUrl}</a>
+        </p>
+      </div>
+    </div>
+  `;
+
+  await resend.emails.send({
+    from: fromEmail,
+    to,
+    subject: 'Verify your Nexora email',
+    html,
+  });
+
+  return { sent: true };
+}
+
+/**
+ * Send an invite email with temp credentials.
+ */
+export async function sendWelcomeEmail({ to, name, orgName, role, password, loginUrl }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[Email] Simulated welcome email to ${to} — Password: ${password}`);
+    return { simulated: true };
+  }
+
+  const roleLabels = {
+    owner: 'Owner', admin: 'Admin', hr: 'HR', manager: 'Manager',
+    developer: 'Developer', designer: 'Designer', viewer: 'Viewer',
+  };
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 0;">
+      <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+        <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <span style="font-size: 24px;">⚡</span>
+        </div>
+        <h1 style="color: white; font-size: 22px; font-weight: 700; margin: 0;">Nexora</h1>
+      </div>
+      <div style="background: #ffffff; padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
+        <h2 style="font-size: 20px; font-weight: 700; color: #111; margin: 0 0 8px;">Welcome to ${orgName || 'the team'}!</h2>
+        <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+          Hi ${name}, your account has been created on Nexora. You've been added as <strong>${roleLabels[role] || role}</strong>.
+        </p>
+        <div style="background: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin: 0 0 24px;">
+          <p style="margin: 0 0 10px; font-size: 14px; color: #333; font-weight: 600;">Your login credentials:</p>
+          <table style="width: 100%; font-size: 14px;">
+            <tr>
+              <td style="padding: 4px 0; color: #888; width: 90px;">Email</td>
+              <td style="padding: 4px 0; color: #111; font-weight: 500;">${to}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #888;">Password</td>
+              <td style="padding: 4px 0; color: #111; font-family: monospace; font-weight: 600; font-size: 15px; letter-spacing: 0.5px;">${password}</td>
+            </tr>
+          </table>
+        </div>
+        <a href="${loginUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 14px 32px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px;">
+          Login to Nexora
+        </a>
+        <p style="color: #ef4444; font-size: 13px; margin-top: 20px; line-height: 1.5; font-weight: 500;">
+          ⚠️ Please change your password after your first login.
+        </p>
+        <hr style="border: none; border-top: 1px solid #f0f0f0; margin: 24px 0;" />
+        <p style="color: #aaa; font-size: 11px; margin: 0;">
+          If you didn't expect this email, please contact your organization admin.
+        </p>
+      </div>
+    </div>
+  `;
+
+  await resend.emails.send({
+    from: fromEmail,
+    to,
+    subject: `Welcome to ${orgName || 'Nexora'} — Your account is ready`,
+    html,
+  });
+
+  return { sent: true };
+}
+
+/**
  * Send an invite email with temp credentials.
  */
 export async function sendInviteEmail({ to, name, inviterName, projectName, role, tempPassword, loginUrl }) {

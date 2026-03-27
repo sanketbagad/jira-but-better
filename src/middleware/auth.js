@@ -19,7 +19,7 @@ export function verifyToken(token) {
 }
 
 /**
- * Require authentication. Populates req.user.
+ * Require authentication. Populates req.user with org info.
  */
 export async function authenticate(req, res, next) {
   // Read token from cookie first, fall back to Authorization header
@@ -40,11 +40,21 @@ export async function authenticate(req, res, next) {
       user = typeof user === 'string' ? JSON.parse(user) : user;
     } else {
       const { rows } = await query(
-        'SELECT id, name, email, role, avatar, is_active FROM users WHERE id = $1',
+        `SELECT u.id, u.name, u.email, u.role, u.avatar, u.is_active, u.onboarding_completed,
+          u.designation, u.employee_code, u.department_id, u.reports_to,
+          u.employment_type, u.employee_status, u.phone, u.bio,
+          om.organization_id, om.role AS org_role, o.name AS org_name, o.slug AS org_slug, o.domain AS org_domain,
+          d.name AS department_name
+         FROM users u
+         LEFT JOIN organization_members om ON om.user_id = u.id
+         LEFT JOIN organizations o ON o.id = om.organization_id
+         LEFT JOIN departments d ON d.id = u.department_id
+         WHERE u.id = $1
+         LIMIT 1`,
         [decoded.id]
       );
       user = rows[0];
-      if (user) await cacheSet(cacheKey, user, USER_CACHE_TTL);
+    if (user) await cacheSet(cacheKey, user, USER_CACHE_TTL);
     }
 
     if (!user || !user.is_active) {
@@ -127,4 +137,90 @@ export async function clearUserCache(userId) {
 
 export async function clearMemberCache(projectId, userId) {
   await cacheDel(`pm:${projectId}:${userId}`);
+}
+
+/**
+ * Require that the user is a member of the org (from :orgId param).
+ */
+export async function requireOrgMember(req, res, next) {
+  const orgId = req.params.orgId;
+  if (!orgId) return next();
+
+  const cacheKey = `om:${orgId}:${req.user.id}`;
+  let role = await cacheGet(cacheKey);
+  if (role) {
+    role = typeof role === 'string' ? role.replace(/"/g, '') : role;
+  } else {
+    const { rows } = await query(
+      'SELECT role FROM organization_members WHERE organization_id = $1 AND user_id = $2',
+      [orgId, req.user.id]
+    );
+    if (!rows[0]) {
+      return res.status(403).json({ error: 'Not a member of this organization' });
+    }
+    role = rows[0].role;
+    await cacheSet(cacheKey, role, MEMBER_CACHE_TTL);
+  }
+
+  if (!role) {
+    return res.status(403).json({ error: 'Not a member of this organization' });
+  }
+
+  req.orgRole = role;
+  next();
+}
+
+/**
+ * Require org admin/owner role. Must be used after requireOrgMember.
+ */
+export function requireOrgAdmin(req, res, next) {
+  // If no orgId, try checking if they're org admin from their user record
+  if (!req.orgRole) {
+    // Try inline check
+    const orgId = req.params.orgId;
+    if (!orgId) return next();
+
+    return (async () => {
+      const { rows } = await query(
+        'SELECT role FROM organization_members WHERE organization_id = $1 AND user_id = $2',
+        [orgId, req.user.id]
+      );
+      if (!rows[0] || !['owner', 'admin'].includes(rows[0].role)) {
+        return res.status(403).json({ error: 'Organization admin access required' });
+      }
+      req.orgRole = rows[0].role;
+      next();
+    })();
+  }
+
+  if (!['owner', 'admin'].includes(req.orgRole)) {
+    return res.status(403).json({ error: 'Organization admin access required' });
+  }
+  next();
+}
+
+export async function clearOrgMemberCache(orgId, userId) {
+  await cacheDel(`om:${orgId}:${userId}`);
+}
+
+/**
+ * Require HR-level access (owner, admin, or hr role).
+ */
+export function requireHR(req, res, next) {
+  const orgRole = req.user?.org_role || req.orgRole;
+  if (!['owner', 'admin', 'hr'].includes(orgRole)) {
+    return res.status(403).json({ error: 'HR access required' });
+  }
+  next();
+}
+
+/**
+ * Require Manager-level access (owner, admin, hr, or manager role).
+ */
+export function requireManager(req, res, next) {
+  const orgRole = req.user?.org_role || req.orgRole;
+  if (!['owner', 'admin', 'hr', 'manager'].includes(orgRole)) {
+    return res.status(403).json({ error: 'Manager access required' });
+  }
+  next();
 }

@@ -40,8 +40,98 @@ export const schemas = {
     name: Joi.string().min(2).max(255).required(),
     email: Joi.string().email().required(),
     password: Joi.string().min(6).max(128).required(),
-    role: Joi.string().valid('admin', 'developer', 'designer', 'viewer', 'client').default('developer'),
+    role: Joi.string().valid('admin', 'developer', 'designer', 'viewer', 'client').default('admin'),
+    org_name: Joi.string().min(2).max(255).allow('', null),
+    org_domain: Joi.string().max(255).allow('', null),
+    org_industry: Joi.string().max(100).allow('', null),
+    org_size: Joi.string().valid('1-10', '11-50', '51-200', '201-500', '500+').allow('', null),
   }),
+
+  // Organizations
+  createOrganization: Joi.object({
+    name: Joi.string().min(2).max(255).required(),
+    domain: Joi.string().max(255).allow('', null),
+    industry: Joi.string().max(100).allow('', null),
+    size: Joi.string().valid('1-10', '11-50', '51-200', '201-500', '500+').allow('', null),
+    website: Joi.string().uri().max(500).allow('', null),
+    address: Joi.string().max(1000).allow('', null),
+    logo_url: Joi.string().uri().allow('', null),
+  }),
+
+  updateOrganization: Joi.object({
+    name: Joi.string().min(2).max(255),
+    domain: Joi.string().max(255).allow('', null),
+    description: Joi.string().max(2000).allow('', null),
+    industry: Joi.string().max(100).allow('', null),
+    size: Joi.string().valid('1-10', '11-50', '51-200', '201-500', '500+').allow('', null),
+    website: Joi.string().uri().max(500).allow('', null),
+    address: Joi.string().max(1000).allow('', null),
+    logo_url: Joi.string().uri().allow('', null),
+    settings: Joi.object(),
+  }).min(1),
+
+  createTeam: Joi.object({
+    name: Joi.string().min(1).max(255).required(),
+    description: Joi.string().max(2000).allow('').default(''),
+    color: Joi.number().integer().min(0).max(10).default(0),
+    lead_id: Joi.string().uuid().allow(null),
+  }),
+
+  updateTeam: Joi.object({
+    name: Joi.string().min(1).max(255),
+    description: Joi.string().max(2000).allow(''),
+    color: Joi.number().integer().min(0).max(10),
+    lead_id: Joi.string().uuid().allow(null),
+  }).min(1),
+
+  // Departments
+  createDepartment: Joi.object({
+    name: Joi.string().min(1).max(255).required(),
+    description: Joi.string().max(2000).allow('').default(''),
+    head_id: Joi.string().uuid().allow(null),
+    parent_department_id: Joi.string().uuid().allow(null),
+    color: Joi.number().integer().min(0).max(10).default(0),
+  }),
+
+  updateDepartment: Joi.object({
+    name: Joi.string().min(1).max(255),
+    description: Joi.string().max(2000).allow(''),
+    head_id: Joi.string().uuid().allow(null),
+    parent_department_id: Joi.string().uuid().allow(null),
+    color: Joi.number().integer().min(0).max(10),
+  }).min(1),
+
+  // People / Employee Profile
+  createPerson: Joi.object({
+    name: Joi.string().min(2).max(255).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).max(128).required(),
+    org_role: Joi.string().valid('admin', 'hr', 'manager', 'developer', 'designer', 'viewer').default('developer'),
+    designation: Joi.string().max(255).allow('', null),
+    department_id: Joi.string().uuid().allow('', null),
+    employee_code: Joi.string().max(50).allow('', null),
+    phone: Joi.string().max(50).allow('', null),
+    employment_type: Joi.string().valid('full-time', 'part-time', 'contract', 'internship', 'freelance').default('full-time'),
+    employee_status: Joi.string().valid('active', 'onboarding', 'on-leave', 'offboarded', 'suspended').default('onboarding'),
+    reports_to: Joi.string().uuid().allow('', null),
+    bio: Joi.string().max(1000).allow('', null),
+    date_of_joining: Joi.date().iso().allow(null),
+  }),
+
+  updatePerson: Joi.object({
+    name: Joi.string().min(2).max(255),
+    designation: Joi.string().max(255).allow('', null),
+    employee_code: Joi.string().max(50).allow('', null),
+    phone: Joi.string().max(50).allow('', null),
+    date_of_joining: Joi.date().iso().allow(null),
+    reports_to: Joi.string().uuid().allow(null),
+    employment_type: Joi.string().valid('full-time', 'part-time', 'contract', 'internship', 'freelance'),
+    employee_status: Joi.string().valid('active', 'onboarding', 'on-leave', 'offboarded', 'suspended'),
+    department_id: Joi.string().uuid().allow(null),
+    address: Joi.string().max(2000).allow('', null),
+    bio: Joi.string().max(1000).allow('', null),
+    avatar: Joi.string().max(10).allow('', null),
+  }).min(1),
 
   // Projects
   createProject: Joi.object({

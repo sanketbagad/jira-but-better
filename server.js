@@ -26,6 +26,9 @@ import storageRoutes from './src/routes/storage.js';
 import chatRoutes from './src/routes/chat.js';
 import meetingRoutes from './src/routes/meetings.js';
 import hrRoutes from './src/routes/hr.js';
+import organizationRoutes from './src/routes/organizations.js';
+import departmentRoutes from './src/routes/departments.js';
+import peopleRoutes from './src/routes/people.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -78,6 +81,9 @@ app.use('/api/projects', storageRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/hr', hrRoutes);
+app.use('/api/organizations', organizationRoutes);
+app.use('/api/departments', departmentRoutes);
+app.use('/api/people', peopleRoutes);
 
 // 404 handler
 app.use((_req, res) => {

@@ -29,7 +29,8 @@ export async function getById(req, res, next) {
 
 export async function create(req, res, next) {
   try {
-    const project = await projectService.createProject(req.user.id, req.body);
+    const organizationId = req.user.organization_id || null;
+    const project = await projectService.createProject(req.user.id, req.body, organizationId);
     res.status(201).json(project);
   } catch (err) {
     next(err);
