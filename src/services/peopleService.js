@@ -26,14 +26,14 @@ export async function createPerson(orgId, {
          designation, department_id, employee_code, phone, employment_type,
          employee_status, reports_to, bio, date_of_joining, onboarding_completed,
          email_verified)
-       VALUES ($1, $2, $3, 'member', $4,
-         $5, $6, $7, $8, $9,
-         $10, $11, $12, $13, FALSE,
+       VALUES ($1, $2, $3, $4, $5,
+         $6, $7, $8, $9, $10,
+         $11, $12, $13, $14, FALSE,
          TRUE)
        RETURNING id, name, email, avatar, designation, department_id, employee_code,
          phone, employment_type, employee_status, reports_to, bio, date_of_joining`,
       [
-        name, email, hash, avatar,
+        name, email, hash, org_role, avatar,
         designation || null, department_id || null, employee_code || null, phone || null,
         employment_type, employee_status,
         reports_to || null, bio || null, date_of_joining || null,
