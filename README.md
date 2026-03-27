@@ -23,6 +23,7 @@ Comprehensive Node.js backend for the ToDoApp (Jira-but-better) project manageme
 - PostgreSQL 14+
 - Upstash Redis account (optional - gracefully degrades)
 - Upstash QStash account (optional - gracefully degrades)
+- OpenAI API key (required for AI document generation/analysis)
 
 ### 1. Install Dependencies
 
@@ -41,6 +42,12 @@ cp .env.example .env
 At minimum, set `DATABASE_URL`:
 ```
 DATABASE_URL=postgresql://user:password@localhost:5432/todoapp
+```
+
+For AI-powered document generation/analysis, also set:
+```
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
 ```
 
 ### 3. Create Database
@@ -142,6 +149,9 @@ Server runs on `http://localhost:3001` by default.
 | PATCH | `/api/projects/:id/documents/:docId` | Update document |
 | POST | `/api/projects/:id/documents/:docId/duplicate` | Duplicate document |
 | DELETE | `/api/projects/:id/documents/:docId` | Delete document |
+| POST | `/api/projects/:id/documents/ai/generate` | Generate a context-aware draft + analysis |
+| POST | `/api/projects/:id/documents/ai/create` | Generate draft with AI and persist as document |
+| POST | `/api/projects/:id/documents/ai/analyze` | Analyze doc content or existing `docId` |
 
 ### Flowcharts
 | Method | Endpoint | Description |

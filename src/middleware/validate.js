@@ -105,6 +105,66 @@ export const schemas = {
     content: Joi.string().max(100000).allow(''),
   }).min(1),
 
+  aiGenerateDocument: Joi.object({
+    prompt: Joi.string().min(10).max(8000).required(),
+    title: Joi.string().min(1).max(500).allow(''),
+    category: Joi.string().valid('requirements', 'design', 'technical', 'meeting', 'other'),
+    tone: Joi.string().max(100).allow('').default('professional'),
+    targetAudience: Joi.string().max(200).allow('').default('engineering team'),
+    additionalContext: Joi.string().max(10000).allow('').default(''),
+    contextWindow: Joi.object({
+      maxTasks: Joi.number().integer().min(1).max(100),
+      maxSprints: Joi.number().integer().min(1).max(50),
+      maxDocs: Joi.number().integer().min(1).max(50),
+    }).default({}),
+  }),
+
+  aiAnalyzeDocument: Joi.object({
+    docId: Joi.string().uuid(),
+    title: Joi.string().min(1).max(500).allow(''),
+    content: Joi.string().max(100000).allow(''),
+    analysisGoal: Joi.string().max(2000).allow('').default(''),
+    contextWindow: Joi.object({
+      maxTasks: Joi.number().integer().min(1).max(100),
+      maxSprints: Joi.number().integer().min(1).max(50),
+      maxDocs: Joi.number().integer().min(1).max(50),
+    }).default({}),
+  }).or('docId', 'content'),
+
+  aiDocumentSuggestions: Joi.object({
+    content: Joi.string().max(100000).required(),
+    title: Joi.string().min(1).max(500).allow('').default(''),
+    category: Joi.string().valid('requirements', 'design', 'technical', 'meeting', 'other').default('other'),
+    contextWindow: Joi.object({
+      maxTasks: Joi.number().integer().min(1).max(100),
+      maxSprints: Joi.number().integer().min(1).max(50),
+      maxDocs: Joi.number().integer().min(1).max(50),
+    }).default({}),
+  }),
+
+  aiDocumentAutocomplete: Joi.object({
+    content: Joi.string().max(50000).required(),
+    cursorContext: Joi.string().max(1000).required(),
+    title: Joi.string().min(1).max(500).allow('').default(''),
+    category: Joi.string().valid('requirements', 'design', 'technical', 'meeting', 'other').default('other'),
+  }),
+
+  aiDocumentChat: Joi.object({
+    content: Joi.string().max(100000).required(),
+    message: Joi.string().min(1).max(4000).required(),
+    title: Joi.string().min(1).max(500).allow('').default(''),
+    category: Joi.string().valid('requirements', 'design', 'technical', 'meeting', 'other').default('other'),
+    chatHistory: Joi.array().items(Joi.object({
+      user: Joi.string().required(),
+      assistant: Joi.string().required(),
+    })).default([]),
+    contextWindow: Joi.object({
+      maxTasks: Joi.number().integer().min(1).max(100),
+      maxSprints: Joi.number().integer().min(1).max(50),
+      maxDocs: Joi.number().integer().min(1).max(50),
+    }).default({}),
+  }),
+
   // Flowcharts
   createFlowchart: Joi.object({
     title: Joi.string().min(1).max(500).required(),

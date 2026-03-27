@@ -1,4 +1,5 @@
 import * as documentService from '../services/documentService.js';
+import * as aiDocumentService from '../services/aiDocumentService.js';
 import { paginationParams, paginatedResponse } from '../utils/pagination.js';
 
 export async function list(req, res, next) {
@@ -83,6 +84,87 @@ export async function remove(req, res, next) {
     }
 
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function generateWithAI(req, res, next) {
+  try {
+    const result = await aiDocumentService.generateDocumentDraft(req.params.projectId, req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createWithAI(req, res, next) {
+  try {
+    const result = await aiDocumentService.createDocumentWithAI(
+      req.params.projectId,
+      req.user.id,
+      req.body
+    );
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function analyzeWithAI(req, res, next) {
+  try {
+    if (req.body.docId) {
+      const result = await aiDocumentService.analyzeExistingDocument(
+        req.params.projectId,
+        req.body.docId,
+        req.body
+      );
+
+      if (!result) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      return res.json(result);
+    }
+
+    const result = await aiDocumentService.analyzeDocument(req.params.projectId, req.body);
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function getSuggestions(req, res, next) {
+  try {
+    const result = await aiDocumentService.getDocumentSuggestions(
+      req.params.projectId,
+      req.body
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAutoComplete(req, res, next) {
+  try {
+    const result = await aiDocumentService.getAutoComplete(
+      req.params.projectId,
+      req.body
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function chatWithAI(req, res, next) {
+  try {
+    const result = await aiDocumentService.chatAboutDocument(
+      req.params.projectId,
+      req.body
+    );
+    res.json(result);
   } catch (err) {
     next(err);
   }
