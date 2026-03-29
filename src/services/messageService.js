@@ -64,38 +64,32 @@ export async function getMessageById(messageId) {
 /**
  * Send a new message
  */
-export async function sendMessage(channelId, senderId, data) {
+export async function sendMessage(channelId, senderId, data, projectId) {
   const { content, type = 'text', reply_to_id, metadata = {} } = data;
   
+  // Single query: INSERT message and JOIN sender + optional reply info
   const result = await query(
-    `INSERT INTO messages (channel_id, sender_id, content, type, reply_to_id, metadata)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
+    `WITH inserted AS (
+       INSERT INTO messages (channel_id, sender_id, content, type, reply_to_id, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *
+     )
+     SELECT i.*,
+            u.name AS sender_name, u.avatar AS sender_avatar, u.email AS sender_email,
+            reply.content AS reply_content,
+            reply_user.name AS reply_sender_name
+     FROM inserted i
+     JOIN users u ON u.id = i.sender_id
+     LEFT JOIN messages reply ON reply.id = i.reply_to_id
+     LEFT JOIN users reply_user ON reply_user.id = reply.sender_id`,
     [channelId, senderId, content, type, reply_to_id, JSON.stringify(metadata)]
   );
   
   const message = result.rows[0];
   
-  // Get sender info
-  const sender = await query('SELECT name, avatar, email FROM users WHERE id = $1', [senderId]);
-  message.sender_name = sender.rows[0]?.name;
-  message.sender_avatar = sender.rows[0]?.avatar;
-  message.sender_email = sender.rows[0]?.email;
-  
-  // Get reply info if exists
-  if (reply_to_id) {
-    const reply = await getMessageById(reply_to_id);
-    message.reply_content = reply?.content;
-    message.reply_sender_name = reply?.sender_name;
-  }
-  
-  // Get channel to emit to project
-  const channel = await query('SELECT project_id FROM channels WHERE id = $1', [channelId]);
-  if (channel.rows[0]) {
-    emitToProject(channel.rows[0].project_id, 'message:new', {
-      ...message,
-      channelId,
-    });
+  // projectId is already known from the route — no extra query needed
+  if (projectId) {
+    emitToProject(projectId, 'message:new', { ...message, channelId });
   }
   
   return message;
@@ -104,7 +98,7 @@ export async function sendMessage(channelId, senderId, data) {
 /**
  * Update a message
  */
-export async function updateMessage(messageId, senderId, content) {
+export async function updateMessage(messageId, senderId, content, projectId) {
   const result = await query(
     `UPDATE messages
      SET content = $2, is_edited = true, updated_at = NOW()
@@ -114,11 +108,8 @@ export async function updateMessage(messageId, senderId, content) {
   );
   
   const message = result.rows[0];
-  if (message) {
-    const channel = await query('SELECT project_id FROM channels WHERE id = $1', [message.channel_id]);
-    if (channel.rows[0]) {
-      emitToProject(channel.rows[0].project_id, 'message:updated', message);
-    }
+  if (message && projectId) {
+    emitToProject(projectId, 'message:updated', message);
   }
   
   return message || null;
@@ -127,7 +118,7 @@ export async function updateMessage(messageId, senderId, content) {
 /**
  * Delete a message (soft delete)
  */
-export async function deleteMessage(messageId, senderId) {
+export async function deleteMessage(messageId, senderId, projectId) {
   const result = await query(
     `UPDATE messages
      SET is_deleted = true, content = '[Message deleted]', updated_at = NOW()
@@ -137,11 +128,8 @@ export async function deleteMessage(messageId, senderId) {
   );
   
   const message = result.rows[0];
-  if (message) {
-    const channel = await query('SELECT project_id FROM channels WHERE id = $1', [message.channel_id]);
-    if (channel.rows[0]) {
-      emitToProject(channel.rows[0].project_id, 'message:deleted', { id: messageId, channelId: message.channel_id });
-    }
+  if (message && projectId) {
+    emitToProject(projectId, 'message:deleted', { id: messageId, channelId: message.channel_id });
   }
   
   return message || null;
@@ -150,53 +138,58 @@ export async function deleteMessage(messageId, senderId) {
 /**
  * Add reaction to message
  */
-export async function addReaction(messageId, userId, emoji) {
+export async function addReaction(messageId, userId, emoji, projectId) {
   const result = await query(
-    `INSERT INTO message_reactions (message_id, user_id, emoji)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (message_id, user_id, emoji) DO NOTHING
-     RETURNING *`,
+    `WITH ins AS (
+       INSERT INTO message_reactions (message_id, user_id, emoji)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (message_id, user_id, emoji) DO NOTHING
+       RETURNING *
+     )
+     SELECT ins.*, u.name AS user_name, m.channel_id
+     FROM ins
+     JOIN users u ON u.id = ins.user_id
+     JOIN messages m ON m.id = ins.message_id`,
     [messageId, userId, emoji]
   );
   
-  const message = await getMessageById(messageId);
-  if (message) {
-    const channel = await query('SELECT project_id FROM channels WHERE id = $1', [message.channel_id]);
-    const user = await query('SELECT name FROM users WHERE id = $1', [userId]);
-    if (channel.rows[0]) {
-      emitToProject(channel.rows[0].project_id, 'message:reaction:added', {
-        messageId,
-        userId,
-        userName: user.rows[0]?.name,
-        emoji,
-        channelId: message.channel_id,
-      });
-    }
+  const row = result.rows[0];
+  if (row && projectId) {
+    emitToProject(projectId, 'message:reaction:added', {
+      messageId,
+      userId,
+      userName: row.user_name,
+      emoji,
+      channelId: row.channel_id,
+    });
   }
   
-  return result.rows[0];
+  return row || null;
 }
 
 /**
  * Remove reaction from message
  */
-export async function removeReaction(messageId, userId, emoji) {
-  await query(
-    'DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3',
+export async function removeReaction(messageId, userId, emoji, projectId) {
+  // Delete and get the channel_id from the message in one round-trip
+  const result = await query(
+    `WITH del AS (
+       DELETE FROM message_reactions
+       WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+       RETURNING message_id
+     )
+     SELECT m.channel_id FROM del JOIN messages m ON m.id = del.message_id`,
     [messageId, userId, emoji]
   );
   
-  const message = await getMessageById(messageId);
-  if (message) {
-    const channel = await query('SELECT project_id FROM channels WHERE id = $1', [message.channel_id]);
-    if (channel.rows[0]) {
-      emitToProject(channel.rows[0].project_id, 'message:reaction:removed', {
-        messageId,
-        userId,
-        emoji,
-        channelId: message.channel_id,
-      });
-    }
+  const row = result.rows[0];
+  if (row && projectId) {
+    emitToProject(projectId, 'message:reaction:removed', {
+      messageId,
+      userId,
+      emoji,
+      channelId: row.channel_id,
+    });
   }
   
   return { success: true };

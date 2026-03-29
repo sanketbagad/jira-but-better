@@ -145,7 +145,8 @@ export async function sendMessage(req, res, next) {
     const message = await messageService.sendMessage(
       req.params.channelId,
       req.user.id,
-      req.body
+      req.body,
+      req.params.projectId
     );
     res.status(201).json(message);
   } catch (err) {
@@ -158,7 +159,8 @@ export async function updateMessage(req, res, next) {
     const message = await messageService.updateMessage(
       req.params.messageId,
       req.user.id,
-      req.body.content
+      req.body.content,
+      req.params.projectId
     );
     if (!message) {
       return res.status(404).json({ error: 'Message not found or unauthorized' });
@@ -171,7 +173,7 @@ export async function updateMessage(req, res, next) {
 
 export async function deleteMessage(req, res, next) {
   try {
-    const message = await messageService.deleteMessage(req.params.messageId, req.user.id);
+    const message = await messageService.deleteMessage(req.params.messageId, req.user.id, req.params.projectId);
     if (!message) {
       return res.status(404).json({ error: 'Message not found or unauthorized' });
     }
@@ -186,7 +188,8 @@ export async function addReaction(req, res, next) {
     const reaction = await messageService.addReaction(
       req.params.messageId,
       req.user.id,
-      req.body.emoji
+      req.body.emoji,
+      req.params.projectId
     );
     res.json(reaction);
   } catch (err) {
@@ -196,7 +199,7 @@ export async function addReaction(req, res, next) {
 
 export async function removeReaction(req, res, next) {
   try {
-    await messageService.removeReaction(req.params.messageId, req.user.id, req.params.emoji);
+    await messageService.removeReaction(req.params.messageId, req.user.id, req.params.emoji, req.params.projectId);
     res.json({ success: true });
   } catch (err) {
     next(err);

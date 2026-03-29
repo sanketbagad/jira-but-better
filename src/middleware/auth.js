@@ -86,12 +86,19 @@ export function authorize(...roles) {
   };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Check if user is a member of the project (from :projectId param).
  */
 export async function requireProjectMember(req, res, next) {
   const projectId = req.params.projectId;
   if (!projectId) return next();
+
+  // Reject immediately if it's not a valid UUID (prevents pg crash)
+  if (!UUID_RE.test(projectId)) {
+    return res.status(400).json({ error: 'Invalid project ID' });
+  }
 
   // Try Redis cache first
   const cacheKey = `pm:${projectId}:${req.user.id}`;
@@ -113,6 +120,13 @@ export async function requireProjectMember(req, res, next) {
   if (!role) {
     return res.status(403).json({ error: 'Not a member of this project' });
   }
+
+  // Also fetch project data for use in controllers
+  const { rows: projectRows } = await query(
+    'SELECT * FROM projects WHERE id = $1',
+    [projectId]
+  );
+  req.project = projectRows[0] || null;
 
   req.projectRole = role;
   next();

@@ -29,6 +29,7 @@ import hrRoutes from './src/routes/hr.js';
 import organizationRoutes from './src/routes/organizations.js';
 import departmentRoutes from './src/routes/departments.js';
 import peopleRoutes from './src/routes/people.js';
+import notificationRoutes from './src/routes/notifications.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -84,6 +85,7 @@ app.use('/api/hr', hrRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/people', peopleRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use((_req, res) => {
