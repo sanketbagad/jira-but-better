@@ -178,7 +178,7 @@ export async function createMeeting(projectId, hostId, data) {
         content: `📅 Meeting scheduled: **${title}**\n🕐 ${new Date(start_time).toLocaleString()} - ${new Date(end_time).toLocaleString()}`,
         type: 'meeting',
         metadata: { meetingId: meeting.id },
-      });
+      }, projectId);
     }
     
     return fullMeeting;
@@ -307,11 +307,13 @@ export async function respondToMeeting(meetingId, userId, status) {
  * Join meeting (for video call tracking)
  */
 export async function joinMeeting(meetingId, userId) {
-  // Update participant joined_at
+  // Upsert participant so non-invited users can also join (e.g. quick calls).
+  // On re-join, clear left_at so the user counts as active again.
   await query(
-    `UPDATE meeting_participants
-     SET joined_at = NOW()
-     WHERE meeting_id = $1 AND user_id = $2`,
+    `INSERT INTO meeting_participants (meeting_id, user_id, status, joined_at)
+     VALUES ($1, $2, 'accepted', NOW())
+     ON CONFLICT (meeting_id, user_id)
+     DO UPDATE SET joined_at = NOW(), left_at = NULL`,
     [meetingId, userId]
   );
   
@@ -326,7 +328,15 @@ export async function joinMeeting(meetingId, userId) {
   }
   
   if (meeting) {
-    emitToProject(meeting.project_id, 'meeting:participant:joined', { meetingId, userId });
+    // Look up user name + avatar to send with the event
+    const userRow = await query('SELECT name, avatar FROM users WHERE id = $1', [userId]);
+    const u = userRow.rows[0] || {};
+    emitToProject(meeting.project_id, 'meeting:participant:joined', {
+      meetingId,
+      userId,
+      userName: u.name,
+      userAvatar: u.avatar,
+    });
   }
   
   return meeting;
@@ -345,7 +355,14 @@ export async function leaveMeeting(meetingId, userId) {
   
   const meeting = await getMeetingById(meetingId);
   if (meeting) {
-    emitToProject(meeting.project_id, 'meeting:participant:left', { meetingId, userId });
+    const userRow = await query('SELECT name, avatar FROM users WHERE id = $1', [userId]);
+    const u = userRow.rows[0] || {};
+    emitToProject(meeting.project_id, 'meeting:participant:left', {
+      meetingId,
+      userId,
+      userName: u.name,
+      userAvatar: u.avatar,
+    });
     
     // Check if all participants have left
     const activeParticipants = await query(
