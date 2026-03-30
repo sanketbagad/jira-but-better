@@ -98,6 +98,53 @@ export async function getMeetingById(meetingId) {
 }
 
 /**
+ * Find an active quick-call meeting in a channel, or create one.
+ * "Active" = status is 'scheduled' or 'in_progress' and end_time is in the future.
+ * This prevents multiple meetings from being created when several users click
+ * the quick-call button in the same channel.
+ */
+export async function findOrCreateQuickMeeting(projectId, channelId, userId) {
+  // 1. Look for an existing active meeting in this channel
+  const existing = await query(
+    `SELECT m.id
+     FROM meetings m
+     WHERE m.project_id = $1
+       AND m.channel_id = $2
+       AND m.status IN ('scheduled', 'in_progress')
+       AND m.end_time > NOW()
+       AND m.meeting_type = 'video'
+     ORDER BY m.created_at DESC
+     LIMIT 1`,
+    [projectId, channelId]
+  );
+
+  if (existing.rows.length > 0) {
+    // Join the user into the existing meeting and return it
+    const meetingId = existing.rows[0].id;
+    const joined = await joinMeeting(meetingId, userId);
+    return joined;
+  }
+
+  // 2. No active meeting — create a new one
+  const now = new Date();
+  const end = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
+
+  // We need the channel name for the title
+  const chResult = await query(`SELECT name FROM channels WHERE id = $1`, [channelId]);
+  const channelName = chResult.rows[0]?.name || 'general';
+
+  return createMeeting(projectId, userId, {
+    title: `Quick call in #${channelName}`,
+    description: '',
+    channel_id: channelId,
+    start_time: now.toISOString(),
+    end_time: end.toISOString(),
+    meeting_type: 'video',
+    participant_ids: [],
+  });
+}
+
+/**
  * Create a new meeting
  */
 export async function createMeeting(projectId, hostId, data) {

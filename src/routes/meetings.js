@@ -17,6 +17,7 @@ router.get('/:projectId/presence', requireProjectMember, meetingController.getOn
 // Meeting routes
 router.get('/:projectId/meetings', requireProjectMember, meetingController.listMeetings);
 router.post('/:projectId/meetings', requireProjectMember, validate(schemas.createMeeting), meetingController.createMeeting);
+router.post('/:projectId/meetings/quick-call', requireProjectMember, meetingController.quickCall);
 router.get('/:projectId/meetings/:meetingId', requireProjectMember, meetingController.getMeeting);
 router.patch('/:projectId/meetings/:meetingId', requireProjectMember, validate(schemas.updateMeeting), meetingController.updateMeeting);
 router.delete('/:projectId/meetings/:meetingId', requireProjectMember, meetingController.deleteMeeting);

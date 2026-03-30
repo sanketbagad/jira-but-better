@@ -101,6 +101,23 @@ export async function joinMeeting(req, res, next) {
   }
 }
 
+export async function quickCall(req, res, next) {
+  try {
+    const { channelId } = req.body;
+    if (!channelId) {
+      return res.status(400).json({ error: 'channelId is required' });
+    }
+    const meeting = await meetingService.findOrCreateQuickMeeting(
+      req.params.projectId,
+      channelId,
+      req.user.id
+    );
+    res.json(meeting);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function leaveMeeting(req, res, next) {
   try {
     await meetingService.leaveMeeting(req.params.meetingId, req.user.id);
