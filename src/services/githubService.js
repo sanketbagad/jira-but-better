@@ -39,7 +39,7 @@ export async function connectRepo(projectId, userId, { owner, repo, access_token
       repo = EXCLUDED.repo,
       access_token = EXCLUDED.access_token,
       connected_by = EXCLUDED.connected_by
-    RETURNING id, project_id, owner, repo, created_at
+    RETURNING id, project_id, owner, repo, access_token, created_at
   `, [projectId, owner, repo, access_token || null, userId]);
 
   await cacheDel(`github:${projectId}:*`);

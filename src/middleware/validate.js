@@ -575,4 +575,55 @@ export const schemas = {
     company_logo_url: Joi.string().uri().allow('', null),
     status: Joi.string().valid('draft', 'generated', 'sent', 'paid'),
   }).min(1),
+
+  // Interviews
+  createInterview: Joi.object({
+    candidate_name: Joi.string().min(1).max(255).required(),
+    candidate_email: Joi.string().email().required(),
+    candidate_phone: Joi.string().max(50).allow('', null),
+    position_title: Joi.string().min(1).max(255).required(),
+    department: Joi.string().max(255).allow('', null),
+    round: Joi.string().valid(
+      'screening', 'technical', 'coding', 'system_design',
+      'behavioral', 'hr', 'culture_fit', 'final', 'other'
+    ).required(),
+    round_number: Joi.number().integer().min(1).max(20).required(),
+    interviewer_id: Joi.string().uuid().allow(null),
+    scheduled_at: Joi.date().iso().required(),
+    duration_minutes: Joi.number().integer().min(15).max(480).default(60),
+    interview_type: Joi.string().valid('video', 'in_person', 'phone').default('video'),
+    status: Joi.string().valid(
+      'scheduled', 'confirmed', 'in_progress', 'completed',
+      'cancelled', 'no_show', 'rescheduled'
+    ).default('scheduled'),
+    notes: Joi.string().max(5000).allow('', null),
+    feedback: Joi.string().max(5000).allow('', null),
+    rating: Joi.number().integer().min(1).max(5).allow(null),
+    resume_url: Joi.string().uri().allow('', null),
+  }),
+
+  updateInterview: Joi.object({
+    candidate_name: Joi.string().min(1).max(255),
+    candidate_email: Joi.string().email(),
+    candidate_phone: Joi.string().max(50).allow('', null),
+    position_title: Joi.string().min(1).max(255),
+    department: Joi.string().max(255).allow('', null),
+    round: Joi.string().valid(
+      'screening', 'technical', 'coding', 'system_design',
+      'behavioral', 'hr', 'culture_fit', 'final', 'other'
+    ),
+    round_number: Joi.number().integer().min(1).max(20),
+    interviewer_id: Joi.string().uuid().allow(null),
+    scheduled_at: Joi.date().iso(),
+    duration_minutes: Joi.number().integer().min(15).max(480),
+    interview_type: Joi.string().valid('video', 'in_person', 'phone'),
+    status: Joi.string().valid(
+      'scheduled', 'confirmed', 'in_progress', 'completed',
+      'cancelled', 'no_show', 'rescheduled'
+    ),
+    notes: Joi.string().max(5000).allow('', null),
+    feedback: Joi.string().max(5000).allow('', null),
+    rating: Joi.number().integer().min(1).max(5).allow(null),
+    resume_url: Joi.string().uri().allow('', null),
+  }).min(1),
 };

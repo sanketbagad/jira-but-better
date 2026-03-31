@@ -610,3 +610,158 @@ export async function sendPayslipToEmployee(payslip, pdfBase64 = null) {
 
   return { sent: true };
 }
+
+/**
+ * Send an interview invitation email to a candidate.
+ */
+export async function sendInterviewInvite(interview, companyName = 'Nexora') {
+  const {
+    candidate_name,
+    candidate_email,
+    position_title,
+    department,
+    round,
+    round_number,
+    interviewer_name,
+    scheduled_at,
+    duration_minutes,
+    meeting_link,
+    interview_type,
+    notes,
+  } = interview;
+
+  const roundLabels = {
+    screening: 'Screening Round',
+    technical: 'Technical Round',
+    coding: 'Coding Round',
+    system_design: 'System Design Round',
+    behavioral: 'Behavioral Round',
+    hr: 'HR Round',
+    culture_fit: 'Culture Fit Round',
+    final: 'Final Round',
+    other: 'Interview',
+  };
+
+  const typeLabels = {
+    video: '📹 Video Call',
+    in_person: '🏢 In Person',
+    phone: '📞 Phone Call',
+  };
+
+  const roundLabel = roundLabels[round] || 'Interview';
+  const typeLabel = typeLabels[interview_type] || 'Video Call';
+  const dateStr = new Date(scheduled_at).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  const timeStr = new Date(scheduled_at).toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+  const endTime = new Date(new Date(scheduled_at).getTime() + (duration_minutes || 60) * 60000);
+  const endTimeStr = endTime.toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const fullMeetingLink = meeting_link?.startsWith('http') ? meeting_link : `${baseUrl}${meeting_link}`;
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[Email] Simulated interview invite to ${candidate_email}`);
+    console.log(`  → ${roundLabel} for ${position_title}`);
+    console.log(`  → ${dateStr} at ${timeStr}`);
+    console.log(`  → Link: ${fullMeetingLink}`);
+    return { simulated: true };
+  }
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 0;">
+      <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+        <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+          <span style="font-size: 24px;">⚡</span>
+        </div>
+        <h1 style="color: white; font-size: 22px; font-weight: 700; margin: 0;">${companyName}</h1>
+        <p style="color: rgba(255,255,255,0.8); font-size: 14px; margin: 8px 0 0;">Interview Invitation</p>
+      </div>
+
+      <div style="background: #ffffff; padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
+        <h2 style="font-size: 20px; font-weight: 700; color: #111; margin: 0 0 8px;">Hi ${candidate_name},</h2>
+        <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+          We're excited to invite you for the <strong>${roundLabel}</strong> (Round ${round_number})
+          for the <strong>${position_title}</strong>${department ? ` in the ${department} department` : ''}
+          position at ${companyName}.
+        </p>
+
+        <div style="background: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 0 0 24px;">
+          <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; color: #888; width: 110px; vertical-align: top;">📅 Date</td>
+              <td style="padding: 8px 0; color: #111; font-weight: 600;">${dateStr}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #888; vertical-align: top;">🕐 Time</td>
+              <td style="padding: 8px 0; color: #111; font-weight: 600;">${timeStr} — ${endTimeStr} (${duration_minutes} min)</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #888; vertical-align: top;">📋 Round</td>
+              <td style="padding: 8px 0; color: #111; font-weight: 600;">${roundLabel}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #888; vertical-align: top;">📍 Format</td>
+              <td style="padding: 8px 0; color: #111; font-weight: 600;">${typeLabel}</td>
+            </tr>
+            ${interviewer_name ? `
+            <tr>
+              <td style="padding: 8px 0; color: #888; vertical-align: top;">👤 Interviewer</td>
+              <td style="padding: 8px 0; color: #111; font-weight: 600;">${interviewer_name}</td>
+            </tr>` : ''}
+          </table>
+        </div>
+
+        ${interview_type === 'video' || interview_type === 'phone' ? `
+        <div style="text-align: center; margin: 0 0 24px;">
+          <a href="${fullMeetingLink}" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 14px 40px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px;">
+            Join Interview Call
+          </a>
+          <p style="color: #888; font-size: 12px; margin-top: 12px;">
+            Or copy this link: <a href="${fullMeetingLink}" style="color: #6366f1; word-break: break-all;">${fullMeetingLink}</a>
+          </p>
+        </div>` : `
+        <div style="background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin: 0 0 24px;">
+          <p style="margin: 0; font-size: 13px; color: #92400e;">
+            <strong>📍 In-Person Interview</strong> — Please arrive at the office 10 minutes before the scheduled time.
+          </p>
+        </div>`}
+
+        ${notes ? `
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px 16px; margin: 0 0 24px;">
+          <p style="margin: 0 0 4px; font-size: 12px; color: #0369a1; font-weight: 600;">📝 Additional Notes</p>
+          <p style="margin: 0; font-size: 13px; color: #0c4a6e;">${notes}</p>
+        </div>` : ''}
+
+        <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 8px;">
+          Please reply to confirm your attendance. If you need to reschedule, let us know at your earliest convenience.
+        </p>
+        <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
+          We look forward to speaking with you!
+        </p>
+
+        <p style="color: #888; font-size: 14px;">
+          Best regards,<br/>
+          <strong>The ${companyName} Hiring Team</strong>
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #f0f0f0; margin: 24px 0;" />
+        <p style="color: #aaa; font-size: 11px; margin: 0; text-align: center;">
+          This is an automated message from ${companyName}. Please do not reply to this email directly.
+        </p>
+      </div>
+    </div>`;
+
+  await resend.emails.send({
+    from: fromEmail,
+    to: candidate_email,
+    subject: `Interview Invitation: ${roundLabel} — ${position_title} at ${companyName}`,
+    html,
+  });
+
+  return { sent: true };
+}

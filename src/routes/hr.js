@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import * as hrController from '../controllers/hrController.js';
+import * as interviewController from '../controllers/interviewController.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate, schemas } from '../middleware/validate.js';
 
 const router = Router();
 
-// Admin-only middleware - checks if user is admin
+// Admin/HR-only middleware
 function requireAdmin(req, res, next) {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required for HR functions' });
+  if (!['admin', 'hr'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Admin or HR access required for HR functions' });
   }
   next();
 }
@@ -90,6 +91,45 @@ router.post(
 router.get(
   '/employees',
   hrController.getEmployees
+);
+
+// ============== INTERVIEWS ==============
+
+router.get(
+  '/interviews',
+  interviewController.getInterviews
+);
+
+router.get(
+  '/interviews/interviewers',
+  interviewController.getInterviewers
+);
+
+router.get(
+  '/interviews/:id',
+  interviewController.getInterview
+);
+
+router.post(
+  '/interviews',
+  validate(schemas.createInterview),
+  interviewController.createInterview
+);
+
+router.patch(
+  '/interviews/:id',
+  validate(schemas.updateInterview),
+  interviewController.updateInterview
+);
+
+router.delete(
+  '/interviews/:id',
+  interviewController.deleteInterview
+);
+
+router.post(
+  '/interviews/:id/send',
+  interviewController.sendInterviewInviteEmail
 );
 
 export default router;

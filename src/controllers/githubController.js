@@ -1,4 +1,5 @@
 import * as githubService from '../services/githubService.js';
+import * as aiCodeService from '../services/aiCodeService.js';
 
 export async function connect(req, res, next) {
   try {
@@ -8,6 +9,16 @@ export async function connect(req, res, next) {
     if (err.status === 404 || err.status === 403) {
       return res.status(400).json({ error: 'Repository not found or inaccessible' });
     }
+    next(err);
+  }
+}
+
+export async function getConnection(req, res, next) {
+  try {
+    const conn = await githubService.getConnection(req.params.projectId);
+    if (!conn) return res.status(404).json({ error: 'No GitHub repo connected' });
+    res.json(conn);
+  } catch (err) {
     next(err);
   }
 }
@@ -67,6 +78,36 @@ export async function getFiles(req, res, next) {
     if (!data) return res.status(404).json({ error: 'No GitHub repo connected' });
     res.json(data);
   } catch (err) {
+    next(err);
+  }
+}
+
+export async function chatWithCode(req, res, next) {
+  try {
+    const result = await aiCodeService.chatWithCode(req.params.projectId, req.body);
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+}
+
+export async function getCodeImprovements(req, res, next) {
+  try {
+    const result = await aiCodeService.getCodeImprovements(req.params.projectId, req.body);
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+}
+
+export async function explainCode(req, res, next) {
+  try {
+    const result = await aiCodeService.explainCode(req.params.projectId, req.body);
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
 }
